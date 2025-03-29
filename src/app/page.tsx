@@ -1,9 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 
 type Operation = '+' | '-' | '*' | '/' | '%' | '√' | 'x²' | '1/x';
-type CalculatorMode = 'basic' | 'scientific';
 
 export default function Calculator() {
   const [input, setInput] = useState<string>('0');
@@ -12,6 +11,83 @@ export default function Calculator() {
   const [overwrite, setOverwrite] = useState<boolean>(true);
   const [memory, setMemory] = useState<number>(0);
   const [theme, setTheme] = useState<'light' | 'dark'>('dark');
+
+  // Memoized handlers to prevent unnecessary recreations
+  const handleNumberInput = useCallback((num: string) => {
+    if (input === '0' || overwrite) {
+      setInput(num);
+      setOverwrite(false);
+    } else {
+      setInput(`${input}${num}`);
+    }
+  }, [input, overwrite]);
+
+  const handleDecimalInput = useCallback(() => {
+    if (overwrite) {
+      setInput('0.');
+      setOverwrite(false);
+      return;
+    }
+
+    if (!input.includes('.')) {
+      setInput(`${input}.`);
+    }
+  }, [input, overwrite]);
+
+  const handleOperation = useCallback((op: Operation) => {
+    if (input === '0' && previousInput && !overwrite) {
+      setOperation(op);
+      return;
+    }
+
+    if (previousInput && !overwrite) {
+      const result = calculate();
+      setInput(String(result));
+      setPreviousInput(String(result));
+    } else {
+      setPreviousInput(input);
+    }
+
+    setOverwrite(true);
+    setOperation(op);
+  }, [input, previousInput, overwrite]);
+
+  const handleEquals = useCallback(() => {
+    if (!operation || !previousInput) return;
+
+    const result = calculate();
+    setInput(String(result));
+    setPreviousInput('');
+    setOperation(null);
+    setOverwrite(true);
+  }, [operation, previousInput]);
+
+  const handleBackspace = useCallback(() => {
+    if (overwrite) return;
+    
+    if (input.length === 1 || (input.length === 2 && input.startsWith('-'))) {
+      setInput('0');
+      setOverwrite(true);
+    } else {
+      setInput(input.slice(0, -1));
+    }
+  }, [input, overwrite]);
+
+  const calculate = (): number => {
+    const current = parseFloat(input);
+    const previous = parseFloat(previousInput);
+
+    if (isNaN(previous)) return current;
+
+    switch (operation) {
+      case '+': return previous + current;
+      case '-': return previous - current;
+      case '*': return previous * current;
+      case '/': return previous / current;
+      case '%': return previous % current;
+      default: return current;
+    }
+  };
 
   // Handle keyboard input
   useEffect(() => {
@@ -33,89 +109,13 @@ export default function Calculator() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [input, previousInput, operation]);
-
-  const handleNumberInput = (num: string) => {
-    if (input === '0' || overwrite) {
-      setInput(num);
-      setOverwrite(false);
-    } else {
-      setInput(`${input}${num}`);
-    }
-  };
-
-  const handleDecimalInput = () => {
-    if (overwrite) {
-      setInput('0.');
-      setOverwrite(false);
-      return;
-    }
-
-    if (!input.includes('.')) {
-      setInput(`${input}.`);
-    }
-  };
-
-  const handleOperation = (op: Operation) => {
-    if (input === '0' && previousInput && !overwrite) {
-      setOperation(op);
-      return;
-    }
-
-    if (previousInput && !overwrite) {
-      const result = calculate();
-      setInput(String(result));
-      setPreviousInput(String(result));
-    } else {
-      setPreviousInput(input);
-    }
-
-    setOverwrite(true);
-    setOperation(op);
-  };
-
-  const handleEquals = () => {
-    if (!operation || !previousInput) return;
-
-    const result = calculate();
-    setInput(String(result));
-    setPreviousInput('');
-    setOperation(null);
-    setOverwrite(true);
-  };
-
-  const calculate = (): number => {
-    const current = parseFloat(input);
-    const previous = parseFloat(previousInput);
-
-    if (isNaN(previous)) return current;
-
-    switch (operation) {
-      case '+': return previous + current;
-      case '-': return previous - current;
-      case '*': return previous * current;
-      case '/': return previous / current;
-      case '%': return previous % current;
-      default: return current;
-    }
-  };
+  }, [handleBackspace, handleDecimalInput, handleEquals, handleNumberInput, handleOperation]);
 
   const handleClear = () => {
     setInput('0');
     setPreviousInput('');
     setOperation(null);
     setOverwrite(true);
-  };
-
-  const handleBackspace = () => {
-    if (overwrite) return;
-    
-    if (input.length === 1 || (input.length === 2 && input.startsWith('-'))) {
-      setInput('0');
-      setOverwrite(true);
-    } else {
-      setInput(input.slice(0, -1));
-    }
   };
 
   const handleSpecialOperation = (op: Operation) => {
@@ -161,7 +161,7 @@ export default function Calculator() {
       <div className={`w-full max-w-sm rounded-3xl overflow-hidden shadow-2xl ${theme === 'light' ? 'bg-white' : 'bg-gray-800'}`}>
         {/* Header */}
         <div className={`p-5 flex justify-between items-center ${theme === 'light' ? 'bg-blue-600' : 'bg-blue-800'}`}>
-          <h1 className="text-2xl font-bold text-white">Calculator</h1>
+          <h1 className="text-2xl font-bold text-white">Modern Calculator</h1>
           <button 
             onClick={toggleTheme}
             className="p-2 rounded-full bg-white bg-opacity-20 text-white"
